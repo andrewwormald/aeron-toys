@@ -1,25 +1,25 @@
-package io.aeron.toys.toyfactory;
+package io.aeron.toys;
 
 import io.aeron.cluster.ClusteredMediaDriver;
 import io.aeron.cluster.ConsensusModule;
 import io.aeron.cluster.service.ClusteredServiceContainer;
 import io.aeron.driver.MediaDriver;
+import io.aeron.toys.toyfactory.ToyFactoryService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
 
-public class ToyFactoryNode {
-    private static final Logger LOGGER = LoggerFactory.getLogger(ToyFactoryNode.class);
+public class ClusterNode {
+    private static final Logger LOGGER = LoggerFactory.getLogger(ClusterNode.class);
 
-    private static final int SERVICE_ID = 1;
     private static final String BASE_DIR = "aeron-cluster";
 
     public static void main(String[] args) {
         final String nodeId = args.length > 0 ? args[0] : "0";
         final int nodeIndex = Integer.parseInt(nodeId);
 
-        LOGGER.info("Starting ToyFactory node {} ...", nodeId);
+        LOGGER.info("Starting toys cluster node {} ...", nodeId);
 
         final String baseDirName = BASE_DIR + "-" + nodeId;
         final File baseDir = new File(baseDirName);
@@ -38,10 +38,12 @@ public class ToyFactoryNode {
             .clusterMembers("0,localhost:20110,localhost:20220,localhost:20330,localhost:8010")
             .appointmentTimeoutNs(1_000_000_000L);
 
+        // Register all toy factory services
         final ClusteredServiceContainer.Context serviceContainerContext = new ClusteredServiceContainer.Context()
             .clusteredService(new ToyFactoryService())
             .clusterDir(new File(baseDirName, "service"))
-            .serviceId(SERVICE_ID);
+            .serviceId(ToyFactoryService.SERVICE_ID);
+            // Future services: BicycleFactoryService, StormtrooperFactoryService, etc.
 
         try (ClusteredMediaDriver clusteredMediaDriver = ClusteredMediaDriver.launch(
                 mediaDriverContext,
@@ -51,23 +53,22 @@ public class ToyFactoryNode {
             try (ClusteredServiceContainer container = ClusteredServiceContainer.launch(
                     serviceContainerContext)) {
 
-                LOGGER.info("ToyFactory node {} started successfully", nodeId);
+                LOGGER.info("Toys cluster node {} started successfully with all factory services", nodeId);
 
                 Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-                    LOGGER.info("Shutting down ToyFactory node {} ...", nodeId);
+                    LOGGER.info("Shutting down toys cluster node {} ...", nodeId);
                     container.close();
                     clusteredMediaDriver.close();
                 }));
 
-                // Keep the service running
                 Thread.currentThread().join();
 
             } catch (InterruptedException e) {
-                LOGGER.warn("ToyFactory node {} interrupted", nodeId);
+                LOGGER.warn("Cluster node {} interrupted", nodeId);
                 Thread.currentThread().interrupt();
             }
         } catch (Exception e) {
-            LOGGER.error("Failed to start ToyFactory node " + nodeId, e);
+            LOGGER.error("Failed to start cluster node " + nodeId, e);
             System.exit(1);
         }
     }

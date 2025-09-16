@@ -14,8 +14,18 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
+/**
+ * ToyFactoryService - Logical service for managing toy manufacturing
+ *
+ * API Commands (send as messages to this service):
+ * - CREATE_TOY:{customerId} -> Creates new toy, returns TOY_CREATED:{toyId}:{customerId}:{status}
+ * - UPDATE_TOY:{toyId}:{newStatus} -> Updates toy status, returns TOY_UPDATED:{toyId}:{status}
+ * - GET_TOY:{toyId} -> Retrieves toy info, returns TOY_INFO:{toyId}:{customerId}:{status}
+ */
 public class ToyFactoryService implements ClusteredService {
     private static final Logger LOGGER = LoggerFactory.getLogger(ToyFactoryService.class);
+
+    public static final int SERVICE_ID = 100;
 
     private final Map<Long, Toy> toys = new ConcurrentHashMap<>();
     private final AtomicLong toyIdGenerator = new AtomicLong(1);
@@ -24,7 +34,7 @@ public class ToyFactoryService implements ClusteredService {
     @Override
     public void onStart(Cluster cluster, Cluster.Role role) {
         this.cluster = cluster;
-        LOGGER.info("ToyFactory service started with role: {}", role);
+        LOGGER.info("ToyFactory logical service started with role: {} (serviceId: {})", role, SERVICE_ID);
     }
 
     @Override
@@ -61,6 +71,7 @@ public class ToyFactoryService implements ClusteredService {
 
         String response = String.format("TOY_CREATED:%d:%d:%s", toyId, customerId, ToyStatus.PENDING);
         cluster.offer(response);
+
         LOGGER.info("Created toy: {}", toy);
     }
 
@@ -68,8 +79,10 @@ public class ToyFactoryService implements ClusteredService {
         Toy toy = toys.get(toyId);
         if (toy != null) {
             toy.setStatus(newStatus);
+
             String response = String.format("TOY_UPDATED:%d:%s", toyId, newStatus);
             cluster.offer(response);
+
             LOGGER.info("Updated toy {} to status {}", toyId, newStatus);
         } else {
             String response = String.format("TOY_NOT_FOUND:%d", toyId);
@@ -123,6 +136,6 @@ public class ToyFactoryService implements ClusteredService {
 
     @Override
     public void onTerminate(Cluster cluster) {
-        LOGGER.info("ToyFactory service terminated");
+        LOGGER.info("ToyFactory logical service terminated");
     }
 }

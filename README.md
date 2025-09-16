@@ -2,6 +2,8 @@
 
 An event-driven toy manufacturing system using Aeron Cluster for distributed state management.
 
+<img src="factory.png" height="512" alt="Toy Factory"/>
+
 ## Overview
 
 This project recreates a toy manufacturing workflow using Aeron Cluster for fault-tolerant state management. It consists of two main services:
