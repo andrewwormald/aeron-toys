@@ -1,4 +1,4 @@
-package io.aeron.toys.shared;
+package io.github.andrewwormald.aerontoys.shared;
 
 import java.time.Instant;
 

@@ -1,0 +1,55 @@
+plugins {
+    id 'java'
+    id 'application'
+}
+
+allprojects {
+    group = 'io.github.andrewwormald.aerontoys'
+    version = '1.0.0'
+
+    repositories {
+        mavenCentral()
+    }
+}
+
+subprojects {
+    apply plugin: 'java'
+    apply plugin: 'application'
+
+    java {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+
+    ext {
+        aeronVersion = '1.44.1'
+        junitVersion = '5.10.0'
+        slf4jVersion = '2.0.9'
+        logbackVersion = '1.4.11'
+    }
+
+    dependencies {
+        implementation "org.slf4j:slf4j-api:${slf4jVersion}"
+        implementation "ch.qos.logback:logback-classic:${logbackVersion}"
+
+        testImplementation "org.junit.jupiter:junit-jupiter:${junitVersion}"
+        testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    }
+
+    test {
+        useJUnitPlatform()
+    }
+
+    tasks.withType(JavaCompile) {
+        options.encoding = 'UTF-8'
+    }
+}
+
+// Root project tasks
+task build {
+    dependsOn subprojects.build
+}
+
+task clean {
+    dependsOn subprojects.clean
+}

@@ -1,0 +1,23 @@
+dependencies {
+    implementation project(':shared')
+    implementation "io.aeron:aeron-cluster:${aeronVersion}"
+    implementation "io.aeron:aeron-client:${aeronVersion}"
+}
+
+application {
+    mainClass = 'io.github.andrewwormald.aerontoys.toyfactory.ClusterNode'
+}
+
+jar {
+    manifest {
+        attributes 'Main-Class': 'io.github.andrewwormald.aerontoys.toyfactory.ClusterNode'
+    }
+
+    // Create fat jar
+    from {
+        configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
+    }
+
+    archiveFileName = 'toyfactory.jar'
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}

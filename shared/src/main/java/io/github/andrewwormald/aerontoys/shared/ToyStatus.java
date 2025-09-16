@@ -1,4 +1,4 @@
-package io.aeron.toys.shared;
+package io.github.andrewwormald.aerontoys.shared;
 
 public enum ToyStatus {
     UNKNOWN(0),

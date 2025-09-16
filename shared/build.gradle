@@ -1,0 +1,4 @@
+dependencies {
+    // Only slf4j-api needed for shared module
+    // (logback is already included from parent)
+}

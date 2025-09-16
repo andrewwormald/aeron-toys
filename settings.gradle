@@ -1,0 +1,5 @@
+rootProject.name = 'aeron-toys'
+
+include 'shared'
+include 'toyfactory'
+include 'toyworld'

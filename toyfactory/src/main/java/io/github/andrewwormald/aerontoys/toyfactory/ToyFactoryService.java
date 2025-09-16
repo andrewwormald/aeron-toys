@@ -1,11 +1,11 @@
-package io.aeron.toys.toyfactory;
+package io.github.andrewwormald.aerontoys.toyfactory;
 
 import io.aeron.cluster.service.ClientSession;
 import io.aeron.cluster.service.Cluster;
 import io.aeron.cluster.service.ClusteredService;
 import io.aeron.logbuffer.Header;
-import io.aeron.toys.shared.Toy;
-import io.aeron.toys.shared.ToyStatus;
+import io.github.andrewwormald.aerontoys.shared.Toy;
+import io.github.andrewwormald.aerontoys.shared.ToyStatus;
 import org.agrona.DirectBuffer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

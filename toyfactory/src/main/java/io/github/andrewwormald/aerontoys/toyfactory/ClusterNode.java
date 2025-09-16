@@ -1,10 +1,10 @@
-package io.aeron.toys;
+package io.github.andrewwormald.aerontoys.toyfactory;
 
 import io.aeron.cluster.ClusteredMediaDriver;
 import io.aeron.cluster.ConsensusModule;
 import io.aeron.cluster.service.ClusteredServiceContainer;
 import io.aeron.driver.MediaDriver;
-import io.aeron.toys.toyfactory.ToyFactoryService;
+import io.github.andrewwormald.aerontoys.toyfactory.ToyFactoryService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

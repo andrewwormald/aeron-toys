@@ -2,45 +2,66 @@
 
 An event-driven toy manufacturing system using Aeron Cluster for distributed state management.
 
-<img src="factory.png" height="512" alt="Toy Factory"/>
+<img src="factory.png" height="%" alt="Toy Factory"/>
 
 ## Overview
 
-This project recreates a toy manufacturing workflow using Aeron Cluster for fault-tolerant state management. It consists of two main services:
+This project recreates a toy manufacturing workflow using Aeron Cluster for fault-tolerant state management. It follows a physical/logical service architecture:
 
-- **toyfactory**: Manages toy creation state machine using Aeron Cluster
-- **toyworld**: Provides world/supplier services for the manufacturing workflow
+**Physical Services:**
+- **toyfactory**: Clustered service hosting logical toy factories
+- **toyworld**: Standalone service providing world/supplier operations
+
+**Logical Services:**
+- **ToyFactoryService**: Manages toy creation state machine within the cluster
+- **CustomerService, SupplierService, WorkerService**: Separate service classes within ToyWorld
 
 ## Architecture
 
-The system uses an event-driven design where each consumer handles one part of the state machine workflow:
+The system follows a **physical/logical service pattern**:
 
+- **Physical Services**: Deployment units (binaries) that provide infrastructure
+- **Logical Services**: Business logic components hosted within physical services
+
+### Physical vs Logical Services
+
+**Physical Services** (Infrastructure):
+- `ClusterNode`: Boots Aeron Cluster and registers logical services
+- `ToyWorldService`: Runs standalone worker coordination
+
+**Logical Services** (Business Logic):
+- `ToyFactoryService`: Toy state machine (SERVICE_ID: 100)
+- Future: `BicycleFactoryService`, `StormtrooperFactoryService`, etc.
+
+### State Machine
+
+Toys progress through the following states:
 1. **Pending** → **Sourced**: Raw materials acquisition
 2. **Sourced** → **Assembled**: Toy assembly process
 3. **Assembled** → **Completed**: Final packaging and completion
 
-The **toyfactory** service uses Aeron Cluster to maintain consistent state across multiple nodes, while **toyworld** provides supporting services for customers, suppliers, and workers.
+This separation allows different toy factories to be added as logical services to the same cluster infrastructure.
 
 ## Prerequisites
 
 - Java 17 or later
-- Maven 3.6+
+- Gradle 8.5+ (or use included wrapper)
 - Make (for build convenience)
 
 ## Building
 
 ```bash
 # Build all modules
-make build
+./gradlew build
 
 # Package JAR files
-make package
+./gradlew jar
 
 # Run tests
-make test
+./gradlew test
 
-# See all available targets
-make help
+# Clean build
+./gradlew clean
 ```
 
 ## Running
@@ -60,22 +81,22 @@ make run-toyworld
 ### Option 2: Using Maven directly
 
 ```bash
-# Terminal 1 - ToyFactory
-mvn compile exec:java -pl toyfactory -Dexec.mainClass="io.aeron.toys.toyfactory.ToyFactoryNode" -Dexec.args="0"
+# Terminal 1 - ToyFactory Cluster
+./gradlew :toyfactory:run --args="0"
 
-# Terminal 2 - ToyWorld
-mvn compile exec:java -pl toyworld -Dexec.mainClass="io.aeron.toys.toyworld.ToyWorldApp"
+# Terminal 2 - ToyWorld Service
+./gradlew :toyworld:run
 ```
 
 ### Option 3: Using JAR files
 
 ```bash
 # Build JARs first
-make package
+./gradlew jar
 
 # Run services
-java -jar toyfactory/target/toyfactory.jar 0
-java -jar toyworld/target/toyworld.jar
+java -jar toyfactory/build/libs/toyfactory.jar 0
+java -jar toyworld/build/libs/toyworld.jar
 ```
 
 ## Project Structure
@@ -83,18 +104,23 @@ java -jar toyworld/target/toyworld.jar
 ```
 aeron-toys/
 ├── shared/           # Common types and utilities
-│   └── src/main/java/io/aeron/toys/shared/
+│   └── src/main/java/io/github/andrewwormald/aerontoys/shared/
 │       ├── Toy.java         # Toy entity
 │       └── ToyStatus.java   # Status enumeration
-├── toyfactory/       # Aeron Cluster service
-│   └── src/main/java/io/aeron/toys/toyfactory/
-│       ├── ToyFactoryService.java  # Clustered service implementation
-│       └── ToyFactoryNode.java     # Main application
-├── toyworld/         # World services
-│   └── src/main/java/io/aeron/toys/toyworld/
-│       └── ToyWorldApp.java        # Main application with workers
+├── toyfactory/       # Physical: Aeron Cluster service
+│   └── src/main/java/io/github/andrewwormald/aerontoys/toyfactory/
+│       ├── ClusterNode.java         # Physical cluster infrastructure
+│       └── ToyFactoryService.java   # Logical service (SERVICE_ID: 100)
+├── toyworld/         # Physical: Standalone service
+│   └── src/main/java/io/github/andrewwormald/aerontoys/toyworld/
+│       ├── ToyWorldService.java     # Main service coordinator
+│       ├── customer/CustomerService.java
+│       ├── supplier/SupplierService.java
+│       └── workers/WorkerService.java
 ├── Makefile          # Build automation
-└── pom.xml          # Parent Maven configuration
+├── build.gradle     # Root Gradle build script
+├── settings.gradle  # Gradle settings
+└── gradlew         # Gradle wrapper
 ```
 
 ## State Machine
@@ -140,36 +166,47 @@ Logs are written to the `logs/` directory with daily rotation.
 For development, use the dev targets for automatic recompilation:
 
 ```bash
-# Development mode (auto-recompile)
-make dev-toyfactory
-make dev-toyworld
+# Development mode (continuous build)
+./gradlew :toyfactory:run --args="0" --continuous
+./gradlew :toyworld:run --continuous
 ```
 
 ## Cluster Operation
 
-The ToyFactory can run in cluster mode for high availability. To start a 3-node cluster:
+The ClusterNode can run in cluster mode for high availability. To start a 3-node cluster:
 
 ```bash
 # Node 0
-java -jar toyfactory/target/toyfactory.jar 0
+./gradlew :toyfactory:run --args="0"
 
 # Node 1 (in separate terminal)
-java -jar toyfactory/target/toyfactory.jar 1
+./gradlew :toyfactory:run --args="1"
 
 # Node 2 (in separate terminal)
-java -jar toyfactory/target/toyfactory.jar 2
+./gradlew :toyfactory:run --args="2"
 ```
+
+Each physical ClusterNode hosts all registered logical services (ToyFactoryService, etc.).
 
 ## API
 
-The ToyFactory service accepts simple text messages:
+### ToyFactoryService (SERVICE_ID: 100)
 
+The ToyFactoryService logical service accepts simple text messages:
+
+**Commands:**
 - `CREATE_TOY:<customerId>` - Create a new toy for customer
 - `UPDATE_TOY:<toyId>:<newStatus>` - Update toy status
 - `GET_TOY:<toyId>` - Retrieve toy information
 
-Example responses:
+**Responses:**
 - `TOY_CREATED:<toyId>:<customerId>:<status>`
 - `TOY_UPDATED:<toyId>:<status>`
 - `TOY_INFO:<toyId>:<customerId>:<status>`
 - `TOY_NOT_FOUND:<toyId>`
+
+### Future Logical Services
+
+Additional toy factories can be added following the same pattern:
+- `BicycleFactoryService` (SERVICE_ID: 101)
+- `StormtrooperFactoryService` (SERVICE_ID: 102)

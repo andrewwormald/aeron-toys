@@ -1,0 +1,22 @@
+dependencies {
+    // ToyWorld is standalone - no Aeron dependencies needed
+    // (slf4j and logback already included from parent)
+}
+
+application {
+    mainClass = 'io.github.andrewwormald.aerontoys.toyworld.ToyWorldService'
+}
+
+jar {
+    manifest {
+        attributes 'Main-Class': 'io.github.andrewwormald.aerontoys.toyworld.ToyWorldService'
+    }
+
+    // Create fat jar
+    from {
+        configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
+    }
+
+    archiveFileName = 'toyworld.jar'
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
