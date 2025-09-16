@@ -1,4 +1,10 @@
-# Maven
+# Build systems
+# Gradle
+build/
+.gradle/
+!gradle/wrapper/gradle-wrapper.jar
+
+# Maven (legacy)
 target/
 pom.xml.tag
 pom.xml.releaseBackup
@@ -48,3 +54,7 @@ bin/
 
 # Application specific
 *.pid
+
+# Claude Code files
+CLAUDE.md
+.claude/

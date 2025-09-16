@@ -7,9 +7,9 @@
     </appender>
 
     <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <file>logs/toyfactory.log</file>
+        <file>build/logs/toyfactory.log</file>
         <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
-            <fileNamePattern>logs/toyfactory.%d{yyyy-MM-dd}.log</fileNamePattern>
+            <fileNamePattern>build/logs/toyfactory.%d{yyyy-MM-dd}.log</fileNamePattern>
             <maxHistory>30</maxHistory>
         </rollingPolicy>
         <encoder>
@@ -17,7 +17,7 @@
         </encoder>
     </appender>
 
-    <logger name="io.aeron.toys" level="INFO"/>
+    <logger name="io.github.andrewwormald.aerontoys" level="INFO"/>
     <logger name="io.aeron" level="WARN"/>
 
     <root level="INFO">

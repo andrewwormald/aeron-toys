@@ -1,4 +1,2 @@
-dependencies {
-    // Only slf4j-api needed for shared module
-    // (logback is already included from parent)
-}
+// No additional dependencies needed for shared module
+// All common dependencies are inherited from parent build.gradle

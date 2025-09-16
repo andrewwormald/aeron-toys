@@ -45,11 +45,5 @@ subprojects {
     }
 }
 
-// Root project tasks
-task build {
-    dependsOn subprojects.build
-}
-
-task clean {
-    dependsOn subprojects.clean
-}
+// Root project configuration only - no custom tasks needed
+// Gradle automatically aggregates subproject tasks

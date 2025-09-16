@@ -3,7 +3,13 @@ package io.github.andrewwormald.aerontoys.toyfactory;
 import io.aeron.cluster.service.ClientSession;
 import io.aeron.cluster.service.Cluster;
 import io.aeron.cluster.service.ClusteredService;
+import io.aeron.cluster.codecs.CloseReason;
 import io.aeron.logbuffer.Header;
+import io.aeron.ExclusivePublication;
+import io.aeron.Image;
+import org.agrona.collections.Hashing;
+import org.agrona.ExpandableArrayBuffer;
+import org.agrona.concurrent.UnsafeBuffer;
 import io.github.andrewwormald.aerontoys.shared.Toy;
 import io.github.andrewwormald.aerontoys.shared.ToyStatus;
 import org.agrona.DirectBuffer;
@@ -30,11 +36,12 @@ public class ToyFactoryService implements ClusteredService {
     private final Map<Long, Toy> toys = new ConcurrentHashMap<>();
     private final AtomicLong toyIdGenerator = new AtomicLong(1);
     private Cluster cluster;
+    private final ExpandableArrayBuffer buffer = new ExpandableArrayBuffer();
 
     @Override
-    public void onStart(Cluster cluster, Cluster.Role role) {
+    public void onStart(Cluster cluster, Image snapshotImage) {
         this.cluster = cluster;
-        LOGGER.info("ToyFactory logical service started with role: {} (serviceId: {})", role, SERVICE_ID);
+        LOGGER.info("ToyFactory logical service started (serviceId: {})", SERVICE_ID);
     }
 
     @Override
@@ -70,7 +77,7 @@ public class ToyFactoryService implements ClusteredService {
         toys.put(toyId, toy);
 
         String response = String.format("TOY_CREATED:%d:%d:%s", toyId, customerId, ToyStatus.PENDING);
-        cluster.offer(response);
+        offerStringMessage(response);
 
         LOGGER.info("Created toy: {}", toy);
     }
@@ -81,12 +88,12 @@ public class ToyFactoryService implements ClusteredService {
             toy.setStatus(newStatus);
 
             String response = String.format("TOY_UPDATED:%d:%s", toyId, newStatus);
-            cluster.offer(response);
+            offerStringMessage(response);
 
             LOGGER.info("Updated toy {} to status {}", toyId, newStatus);
         } else {
             String response = String.format("TOY_NOT_FOUND:%d", toyId);
-            cluster.offer(response);
+            offerStringMessage(response);
         }
     }
 
@@ -95,12 +102,18 @@ public class ToyFactoryService implements ClusteredService {
         if (toy != null) {
             String response = String.format("TOY_INFO:%d:%d:%s",
                 toy.getId(), toy.getCustomerId(), toy.getStatus());
-            cluster.offer(response);
+            offerStringMessage(response);
         } else {
             String response = String.format("TOY_NOT_FOUND:%d", toyId);
-            cluster.offer(response);
+            offerStringMessage(response);
         }
     }
+
+    private void offerStringMessage(String message) {
+        buffer.putStringWithoutLengthAscii(0, message);
+        cluster.offer(buffer, 0, message.length());
+    }
+
 
     @Override
     public void onTimerEvent(long correlationId, long timestamp) {
@@ -108,14 +121,13 @@ public class ToyFactoryService implements ClusteredService {
     }
 
     @Override
-    public void onTakeSnapshot(long snapshotPosition) {
-        LOGGER.info("Taking snapshot at position: {}", snapshotPosition);
+    public void onTakeSnapshot(ExclusivePublication snapshotPublication) {
+        LOGGER.info("Taking snapshot with publication: {}", snapshotPublication);
         // Implement state snapshot
     }
 
-    @Override
-    public void onLoadSnapshot(long snapshotPosition) {
-        LOGGER.info("Loading snapshot at position: {}", snapshotPosition);
+    public void onLoadSnapshot(Image snapshotImage) {
+        LOGGER.info("Loading snapshot from image: {}", snapshotImage);
         // Implement state loading
     }
 

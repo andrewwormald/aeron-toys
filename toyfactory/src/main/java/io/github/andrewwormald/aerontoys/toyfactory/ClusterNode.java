@@ -1,74 +1,57 @@
 package io.github.andrewwormald.aerontoys.toyfactory;
 
 import io.aeron.cluster.ClusteredMediaDriver;
-import io.aeron.cluster.ConsensusModule;
 import io.aeron.cluster.service.ClusteredServiceContainer;
-import io.aeron.driver.MediaDriver;
 import io.github.andrewwormald.aerontoys.toyfactory.ToyFactoryService;
+import org.agrona.ErrorHandler;
+import org.agrona.concurrent.ShutdownSignalBarrier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.File;
+import java.util.Arrays;
+import java.util.List;
 
 public class ClusterNode {
     private static final Logger LOGGER = LoggerFactory.getLogger(ClusterNode.class);
 
-    private static final String BASE_DIR = "aeron-cluster";
+    private static final int PORT_BASE = 20000;
+
+    private static ErrorHandler errorHandler(final String context) {
+        return (Throwable throwable) -> {
+            LOGGER.error("{}: {}", context, throwable.getMessage(), throwable);
+        };
+    }
 
     public static void main(String[] args) {
-        final String nodeId = args.length > 0 ? args[0] : "0";
-        final int nodeIndex = Integer.parseInt(nodeId);
+        final int nodeId = args.length > 0 ? Integer.parseInt(args[0]) : 0;
+        final List<String> hostnames = Arrays.asList("localhost");
+        final List<String> internalHostnames = Arrays.asList("localhost");
 
         LOGGER.info("Starting toys cluster node {} ...", nodeId);
 
-        final String baseDirName = BASE_DIR + "-" + nodeId;
-        final File baseDir = new File(baseDirName);
+        final ClusterConfig clusterConfig = ClusterConfig.create(
+            nodeId, hostnames, internalHostnames, PORT_BASE, new ToyFactoryService());
 
-        if (!baseDir.exists() && !baseDir.mkdirs()) {
-            throw new IllegalStateException("Failed to create base directory: " + baseDirName);
-        }
+        clusterConfig.mediaDriverContext().errorHandler(errorHandler("Media Driver"));
+        clusterConfig.archiveContext().errorHandler(errorHandler("Archive"));
+        clusterConfig.aeronArchiveContext().errorHandler(errorHandler("Aeron Archive"));
+        clusterConfig.consensusModuleContext().errorHandler(errorHandler("Consensus Module"));
+        clusterConfig.clusteredServiceContext().errorHandler(errorHandler("Clustered Service"));
 
-        final MediaDriver.Context mediaDriverContext = new MediaDriver.Context()
-            .aeronDirectoryName(baseDirName + "/media")
-            .threadingMode(MediaDriver.Context.THREADING_MODE_SHARED);
-
-        final ConsensusModule.Context consensusModuleContext = new ConsensusModule.Context()
-            .clusterDir(new File(baseDirName, "consensus-module"))
-            .clusterMemberId(nodeIndex)
-            .clusterMembers("0,localhost:20110,localhost:20220,localhost:20330,localhost:8010")
-            .appointmentTimeoutNs(1_000_000_000L);
-
-        // Register all toy factory services
-        final ClusteredServiceContainer.Context serviceContainerContext = new ClusteredServiceContainer.Context()
-            .clusteredService(new ToyFactoryService())
-            .clusterDir(new File(baseDirName, "service"))
-            .serviceId(ToyFactoryService.SERVICE_ID);
-            // Future services: BicycleFactoryService, StormtrooperFactoryService, etc.
+        final ShutdownSignalBarrier barrier = new ShutdownSignalBarrier();
 
         try (ClusteredMediaDriver clusteredMediaDriver = ClusteredMediaDriver.launch(
-                mediaDriverContext,
-                null,
-                consensusModuleContext)) {
+                 clusterConfig.mediaDriverContext().terminationHook(barrier::signalAll),
+                 clusterConfig.archiveContext(),
+                 clusterConfig.consensusModuleContext().terminationHook(barrier::signalAll));
+             ClusteredServiceContainer container = ClusteredServiceContainer.launch(
+                 clusterConfig.clusteredServiceContext().terminationHook(barrier::signalAll))) {
 
-            try (ClusteredServiceContainer container = ClusteredServiceContainer.launch(
-                    serviceContainerContext)) {
-
-                LOGGER.info("Toys cluster node {} started successfully with all factory services", nodeId);
-
-                Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-                    LOGGER.info("Shutting down toys cluster node {} ...", nodeId);
-                    container.close();
-                    clusteredMediaDriver.close();
-                }));
-
-                Thread.currentThread().join();
-
-            } catch (InterruptedException e) {
-                LOGGER.warn("Cluster node {} interrupted", nodeId);
-                Thread.currentThread().interrupt();
-            }
+            LOGGER.info("Toys cluster node {} started successfully with all factory services", nodeId);
+            barrier.await();
+            LOGGER.info("Shutting down toys cluster node {} ...", nodeId);
         } catch (Exception e) {
-            LOGGER.error("Failed to start cluster node " + nodeId, e);
+            LOGGER.error("Failed to start cluster node {}", nodeId, e);
             System.exit(1);
         }
     }
