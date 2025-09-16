@@ -1,6 +1,7 @@
 dependencies {
     // ToyWorld is standalone - no Aeron dependencies needed
     // (slf4j and logback already included from parent)
+    implementation 'com.fasterxml.jackson.core:jackson-databind:2.15.2'
 }
 
 application {

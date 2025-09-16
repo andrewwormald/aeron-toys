@@ -4,209 +4,112 @@ An event-driven toy manufacturing system using Aeron Cluster for distributed sta
 
 <img src="factory.png" height="%" alt="Toy Factory"/>
 
-## Overview
+## Quick Start
 
-This project recreates a toy manufacturing workflow using Aeron Cluster for fault-tolerant state management. It follows a physical/logical service architecture:
+Clone and run the complete system in 3 simple steps:
 
-**Physical Services:**
-- **toyfactory**: Clustered service hosting logical toy factories
-- **toyworld**: Standalone service providing world/supplier operations
+```bash
+# 1. Clone and build
+git clone <repository-url>
+cd aeron-toys
+./gradlew build
 
-**Logical Services:**
-- **ToyFactoryService**: Manages toy creation state machine within the cluster
-- **CustomerService, SupplierService, WorkerService**: Separate service classes within ToyWorld
+# 2. Run services in separate terminals
+# Terminal 1 - ToyFactory (cluster)
+./gradlew :toyfactory:run --args="0"
 
-## Architecture
+# Terminal 2 - Gateway (HTTP API)
+./gradlew :gateway:run --args="9090"
 
-The system follows a **physical/logical service pattern**:
+# Terminal 3 - ToyWorld (customer simulation)
+./gradlew :toyworld:run
+```
 
-- **Physical Services**: Deployment units (binaries) that provide infrastructure
-- **Logical Services**: Business logic components hosted within physical services
+The system will start automatically creating toys! Check the logs to see the toy manufacturing workflow in action.
 
-### Physical vs Logical Services
+## System Overview
 
-**Physical Services** (Infrastructure):
-- `ClusterNode`: Boots Aeron Cluster and registers logical services
-- `ToyWorldService`: Runs standalone worker coordination
+**Architecture**: Event-driven toy manufacturing with Aeron Cluster for fault-tolerant state management.
 
-**Logical Services** (Business Logic):
-- `ToyFactoryService`: Toy state machine (SERVICE_ID: 100)
-- Future: `BicycleFactoryService`, `StormtrooperFactoryService`, etc.
+**Services**:
+- **ToyFactory**: Aeron Cluster service managing toy manufacturing state machine
+- **Gateway**: HTTP API gateway for external clients
+- **ToyWorld**: Customer simulation service making HTTP requests
 
-### State Machine
-
-Toys progress through the following states:
-1. **Pending** → **Sourced**: Raw materials acquisition
-2. **Sourced** → **Assembled**: Toy assembly process
-3. **Assembled** → **Completed**: Final packaging and completion
-
-This separation allows different toy factories to be added as logical services to the same cluster infrastructure.
+**Flow**: Customer → HTTP → Gateway → Aeron Cluster → ToyFactory → Manufacturing workflow
 
 ## Prerequisites
 
 - Java 17 or later
-- Gradle 8.5+ (or use included wrapper)
-- Make (for build convenience)
+- Gradle 8.5+ (included wrapper)
 
-## Building
+## Build
 
 ```bash
-# Build all modules
 ./gradlew build
-
-# Package JAR files
-./gradlew jar
-
-# Run tests
-./gradlew test
-
-# Clean build
-./gradlew clean
 ```
 
-## Running
+## Services
 
-### Option 1: Using Make (Recommended)
+### ToyFactory (Port 20002)
+Aeron Cluster service managing the toy manufacturing state machine:
+- Creates toys with PENDING status
+- Manages toy lifecycle transitions
+- Provides fault-tolerant state replication
 
-In separate terminals:
-
+### Gateway (Port 9090)
+HTTP API gateway providing REST endpoints:
 ```bash
-# Terminal 1 - Start ToyFactory
-make run-toyfactory
+# Create a toy
+curl -X POST http://localhost:9090/api/toys \
+  -H "Content-Type: application/json" \
+  -d '{"customerId": 123}'
 
-# Terminal 2 - Start ToyWorld
-make run-toyworld
+# Get toy status
+curl http://localhost:9090/api/toys/1
+
+# Health check
+curl http://localhost:9090/health
 ```
 
-### Option 2: Using Maven directly
-
-```bash
-# Terminal 1 - ToyFactory Cluster
-./gradlew :toyfactory:run --args="0"
-
-# Terminal 2 - ToyWorld Service
-./gradlew :toyworld:run
-```
-
-### Option 3: Using JAR files
-
-```bash
-# Build JARs first
-./gradlew jar
-
-# Run services
-java -jar toyfactory/build/libs/toyfactory.jar 0
-java -jar toyworld/build/libs/toyworld.jar
-```
+### ToyWorld (Customer Simulation)
+Automatically creates new toy orders every 5 seconds by sending HTTP requests to the Gateway.
 
 ## Project Structure
 
 ```
 aeron-toys/
-├── shared/           # Common types and utilities
-│   └── src/main/java/io/github/andrewwormald/aerontoys/shared/
-│       ├── Toy.java         # Toy entity
-│       └── ToyStatus.java   # Status enumeration
-├── toyfactory/       # Physical: Aeron Cluster service
-│   └── src/main/java/io/github/andrewwormald/aerontoys/toyfactory/
-│       ├── ClusterNode.java         # Physical cluster infrastructure
-│       └── ToyFactoryService.java   # Logical service (SERVICE_ID: 100)
-├── toyworld/         # Physical: Standalone service
-│   └── src/main/java/io/github/andrewwormald/aerontoys/toyworld/
-│       ├── ToyWorldService.java     # Main service coordinator
-│       ├── customer/CustomerService.java
-│       ├── supplier/SupplierService.java
-│       └── workers/WorkerService.java
-├── Makefile          # Build automation
-├── build.gradle     # Root Gradle build script
-├── settings.gradle  # Gradle settings
-└── gradlew         # Gradle wrapper
+├── shared/           # Common types (Toy, ToyStatus)
+├── toyfactory/       # Aeron Cluster service
+├── gateway/          # HTTP API gateway
+├── toyworld/         # Customer simulation
+└── build.gradle      # Gradle build
 ```
 
-## State Machine
+## API Reference
 
-Toys progress through the following states:
+**Gateway REST API:**
+- `POST /api/toys` - Create toy (requires `{"customerId": <id>}`)
+- `GET /api/toys/{id}` - Get toy status
+- `GET /health` - Service health check
 
-- **UNKNOWN**: Invalid state
-- **PENDING**: Newly created toy awaiting processing
-- **SOURCED**: Materials have been sourced from suppliers
-- **ASSEMBLED**: Toy has been assembled by workers
-- **COMPLETED**: Toy is finished and ready for delivery
+**Internal Cluster Protocol:**
+- `CREATE_TOY:<customerId>` → `TOY_CREATED:<toyId>:<customerId>:<status>`
+- `GET_TOY:<toyId>` → `TOY_INFO:<toyId>:<customerId>:<status>`
 
-## Services
+## Troubleshooting
 
-### ToyFactory Service
-
-The ToyFactory runs as an Aeron Cluster service providing:
-
-- **Fault tolerance**: State is replicated across cluster nodes
-- **Consistency**: All state changes go through Raft consensus
-- **Event sourcing**: All state transitions are logged as events
-- **State machine**: Handles toy lifecycle transitions
-
-### ToyWorld Service
-
-The ToyWorld service provides supporting infrastructure:
-
-- **Customer Service**: Handles customer interactions and orders
-- **Supplier Service**: Manages material sourcing and supplier communications
-- **Worker Service**: Coordinates assembly line workers
-
-## Configuration
-
-The services use the following default ports:
-
-- **Aeron Cluster**: 20110, 20220, 20330, 8010
-- **ToyWorld Communication**: 40123
-
-Logs are written to the `logs/` directory with daily rotation.
-
-## Development
-
-For development, use the dev targets for automatic recompilation:
-
+**Gateway connection issues:**
 ```bash
-# Development mode (continuous build)
-./gradlew :toyfactory:run --args="0" --continuous
-./gradlew :toyworld:run --continuous
+# Check if services are running
+curl http://localhost:9090/health
+
+# Restart gateway if cluster_connected is false
+# Stop: pkill -f gateway
+# Start: ./gradlew :gateway:run --args="9090"
 ```
 
-## Cluster Operation
-
-The ClusterNode can run in cluster mode for high availability. To start a 3-node cluster:
-
-```bash
-# Node 0
-./gradlew :toyfactory:run --args="0"
-
-# Node 1 (in separate terminal)
-./gradlew :toyfactory:run --args="1"
-
-# Node 2 (in separate terminal)
-./gradlew :toyfactory:run --args="2"
-```
-
-Each physical ClusterNode hosts all registered logical services (ToyFactoryService, etc.).
-
-## API
-
-### ToyFactoryService (SERVICE_ID: 100)
-
-The ToyFactoryService logical service accepts simple text messages:
-
-**Commands:**
-- `CREATE_TOY:<customerId>` - Create a new toy for customer
-- `UPDATE_TOY:<toyId>:<newStatus>` - Update toy status
-- `GET_TOY:<toyId>` - Retrieve toy information
-
-**Responses:**
-- `TOY_CREATED:<toyId>:<customerId>:<status>`
-- `TOY_UPDATED:<toyId>:<status>`
-- `TOY_INFO:<toyId>:<customerId>:<status>`
-- `TOY_NOT_FOUND:<toyId>`
-
-### Future Logical Services
-
-Additional toy factories can be added following the same pattern:
-- `BicycleFactoryService` (SERVICE_ID: 101)
-- `StormtrooperFactoryService` (SERVICE_ID: 102)
+**Port conflicts:**
+- ToyFactory: 20002 (cluster ingress)
+- Gateway: 9090 (HTTP API)
+- Change ports in run commands if needed

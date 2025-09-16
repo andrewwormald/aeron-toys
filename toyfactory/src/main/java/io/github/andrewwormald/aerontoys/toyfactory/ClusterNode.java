@@ -2,7 +2,7 @@ package io.github.andrewwormald.aerontoys.toyfactory;
 
 import io.aeron.cluster.ClusteredMediaDriver;
 import io.aeron.cluster.service.ClusteredServiceContainer;
-import io.github.andrewwormald.aerontoys.toyfactory.ToyFactoryService;
+import io.github.andrewwormald.aerontoys.toyfactory.bicycle.BicycleService;
 import org.agrona.ErrorHandler;
 import org.agrona.concurrent.ShutdownSignalBarrier;
 import org.slf4j.Logger;
@@ -29,8 +29,9 @@ public class ClusterNode {
 
         LOGGER.info("Starting toys cluster node {} ...", nodeId);
 
+        final BicycleService bicycleService = new BicycleService();
         final ClusterConfig clusterConfig = ClusterConfig.create(
-            nodeId, hostnames, internalHostnames, PORT_BASE, new ToyFactoryService());
+            nodeId, hostnames, internalHostnames, PORT_BASE, bicycleService);
 
         clusterConfig.mediaDriverContext().errorHandler(errorHandler("Media Driver"));
         clusterConfig.archiveContext().errorHandler(errorHandler("Archive"));
@@ -47,7 +48,7 @@ public class ClusterNode {
              ClusteredServiceContainer container = ClusteredServiceContainer.launch(
                  clusterConfig.clusteredServiceContext().terminationHook(barrier::signalAll))) {
 
-            LOGGER.info("Toys cluster node {} started successfully with all factory services", nodeId);
+            LOGGER.info("Toys cluster node {} started successfully with background egress processing", nodeId);
             barrier.await();
             LOGGER.info("Shutting down toys cluster node {} ...", nodeId);
         } catch (Exception e) {

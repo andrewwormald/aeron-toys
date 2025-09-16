@@ -1,27 +1,23 @@
 dependencies {
     implementation project(':shared')
-    implementation "io.aeron:aeron-cluster:${aeronVersion}"
     implementation "io.aeron:aeron-client:${aeronVersion}"
+    implementation "io.aeron:aeron-cluster:${aeronVersion}"
     implementation 'com.fasterxml.jackson.core:jackson-databind:2.15.2'
 }
 
 application {
-    mainClass = 'io.github.andrewwormald.aerontoys.toyfactory.ClusterNode'
+    mainClass = 'io.github.andrewwormald.aerontoys.gateway.GatewayService'
     applicationDefaultJvmArgs = [
         '--add-opens', 'java.base/sun.nio.ch=ALL-UNNAMED',
         '--add-opens', 'java.base/java.nio=ALL-UNNAMED',
         '--add-opens', 'java.base/sun.nio.fs=ALL-UNNAMED',
-        '--add-exports', 'java.base/sun.nio.ch=ALL-UNNAMED',
-        '-Xmx1G',
-        '-XX:+UseG1GC',
-        '-Daeron.dir=build/aeron',
-        '-Dlogback.configurationFile=src/main/resources/logback.xml'
+        '--add-exports', 'java.base/sun.nio.ch=ALL-UNNAMED'
     ]
 }
 
 jar {
     manifest {
-        attributes 'Main-Class': 'io.github.andrewwormald.aerontoys.toyfactory.ClusterNode'
+        attributes 'Main-Class': 'io.github.andrewwormald.aerontoys.gateway.GatewayService'
     }
 
     // Create fat jar
@@ -29,6 +25,6 @@ jar {
         configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
     }
 
-    archiveFileName = 'toyfactory.jar'
+    archiveFileName = 'gateway.jar'
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 }

@@ -3,8 +3,6 @@ package io.github.andrewwormald.aerontoys.toyworld;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import io.github.andrewwormald.aerontoys.toyworld.customer.CustomerService;
-import io.github.andrewwormald.aerontoys.toyworld.supplier.SupplierService;
-import io.github.andrewwormald.aerontoys.toyworld.workers.WorkerService;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -45,12 +43,6 @@ public class ToyWorldService {
 
         // Start Customer Service
         executorService.submit(new CustomerService());
-
-        // Start Supplier Service
-        executorService.submit(new SupplierService());
-
-        // Start Worker Service
-        executorService.submit(new WorkerService());
 
         LOGGER.info("ToyWorld workers started");
     }
